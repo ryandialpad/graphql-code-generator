@@ -107,46 +107,6 @@ export function use${operationName}(options: Omit<Urql.Use${operationType}Args<n
 };`;
   }
 
-  private _mockNamedType(variable: VariableNode, type: NamedTypeNode) {
-    return `
-          ${variable.name.value}: '${type.name.value}',
-    `;
-  }
-
-  private _mockListType(variable: VariableNode, type: ListTypeNode) {
-    // TODO
-    //let mockedVals = '';
-
-    //eslint-disable-next-line no-console
-    console.log('TODO: Implement _mockListType: ', variable, type);
-
-    /*variableDefinitions.forEach(variableDefinition => {
-      switch (variableDefinition.type.kind) {
-        case 'ListType': {
-          mockedVals += this._mockListType(variableDefinition.type);
-          break;
-        }
-        case 'NonNullType': {
-          if (variableDefinition.type.type.kind === 'ListType') {
-            mockedVals += this._mockListType(variableDefinition.type.type);
-          } else {
-            mockedVals += this._mockNamedType(variableDefinition.type.type);
-          }
-          break;
-        }
-        case 'NamedType': {
-          mockedVals += this._mockNamedType(variableDefinition.type);
-          break;
-        }
-        default: {
-          // TODO: throw some error or something
-        }
-      }
-
-      return mockedVals;
-    });*/
-  }
-
   // TODO: Refactor this to not be recursive for efficiency sake
   private _getFieldType(name: string, typeMap: any): any {
     let foundType;
@@ -240,109 +200,14 @@ export function use${operationName}(options: Omit<Urql.Use${operationType}Args<n
     return mockedVals;
   }
 
-  private _buildCompositionFnMock(
-    node: OperationDefinitionNode,
-    operationType: string,
-    documentVariableName: string,
-    operationResultType: string,
-    operationVariablesTypes: string
-  ): string {
+  private _buildCompositionFnMock(node: OperationDefinitionNode, operationType: string): string {
     const operationName: string = this.convertName(node.name?.value ?? '', {
       suffix: this.config.omitOperationSuffix ? '' : pascalCase(operationType),
       useTypesPrefix: false,
     });
 
-    // eslint-disable-next-line no-console
-    console.log(
-      'selectionSet',
-      JSON.stringify(node.selectionSet, (k, v) => (k === 'loc' ? undefined : v), 2)
-    );
-    /*
-      POTENTIAL TYPES:
-        Case A
-        NamedType => Create mock
-        NonNullType => NamedType => Create mock
-
-        Case B
-        NonNullType => ListType => Call recursive create mock
-        ListType => NamedType => For each create mock
-        ListType => NonNullType => For each create mock
-        ListType => ListType => Call recursive create mock
-    */
-
-    // eslint-disable-next-line no-console
-    console.log(
-      'testing some shit',
-      JSON.stringify(
-        //node.selectionSet.selections[0]['selectionSet']['selections'][0],
-        (node.selectionSet.selections[0] as SelectionSetNode).selectionSet.selections[0],
-        (k, v) => (k === 'loc' ? undefined : v),
-        2
-      )
-    );
-
-    // eslint-disable-next-line no-console
-    console.log(Object.keys(this._schema.getTypeMap()));
-    Object.keys(this._schema.getTypeMap()).forEach(typeMapEntry => {
-      if (typeMapEntry === 'Entry') {
-        // eslint-disable-next-line no-console
-        console.log(this._schema.getTypeMap()[typeMapEntry]['_fields']);
-      }
-    });
-
     const mockedVals = this._mockSelectionSet(node.selectionSet);
 
-    /*node.selectionSet.selections.forEach(selection => {
-      // eslint-disable-next-line no-console
-
-      // TODO: iterate through selection set, somehow figure out how to map types (can be ret from type map but not ideal)
-      // example -> iterate through _fields, match name, inspect type.ofType.name
-      switch (selection.kind) {
-        case 'Field': {
-          if (selection.selectionSet) {
-            // TODO: Call some recursive function
-          } else {
-            mockedVals += this._mockFieldNode(selection);
-          }
-          break;
-        }
-        case 'FragmentSpread': {
-          // TODO: Probably will not support for POC purposes
-          break;
-        }
-        case 'InlineFragment': {
-          // TODO: Probably will not support for POC purposes
-          break;
-        }
-        default: {
-          // TODO: Throw error or something
-        }
-      }*/
-
-    /* else if (
-        selection.type.kind === 'ListType' ||
-        (selection.type.kind === 'NonNullType' && selection.type.type.kind === 'ListType')
-      ) {
-        if (selection.type.kind === 'ListType') {
-          mockedVals += this._mockListType(selection.variable, selection.type);
-        } else if (selection.type.kind === 'NonNullType') {
-          // TODO: figure out what to do with this one
-          //mockedVals += this._mockListType(variableDefinition.type.variable, variableDefinition.type.type as ListTypeNode);
-        } else {
-          // TODO: throw some error or something
-        }
-      } else if (selection.type.kind === 'NonNullType' && selection.type.type.kind === 'NamedType') {
-        mockedVals += this._mockNamedType(selection.variable, selection.type.type);
-      }*/
-    //});
-
-    // eslint-disable-next-line no-console
-    console.log(`
-      operationName: ${operationName}
-      documentVariableName: ${documentVariableName}
-      operationResultType: ${operationResultType}
-      operationVariablesTypes: ${operationVariablesTypes}
-    `);
     return `
 export function ${operationName}Mocks() {
   return {
@@ -399,13 +264,7 @@ export function use${operationName}(options: Omit<Urql.Use${operationType}Args<n
         operationVariablesTypesPrefixed
       );
 
-      const mock = this._buildCompositionFnMock(
-        node,
-        operationType,
-        documentVariablePrefixed,
-        operationResultTypePrefixed,
-        operationVariablesTypesPrefixed
-      );
+      const mock = this._buildCompositionFnMock(node, operationType);
 
       // eslint-disable-next-line no-console
       console.log('mock', mock);
