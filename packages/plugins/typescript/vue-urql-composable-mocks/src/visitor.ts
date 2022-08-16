@@ -125,6 +125,7 @@ export function use${operationName}(options: Omit<Urql.Use${operationType}Args<n
   }
 
   private _mockFieldData(name: string): any {
+    // TODO: Might be able to narrow this down to query / mutation / subscription types
     const fieldType = this._getFieldType(name, this._schema.getTypeMap());
 
     switch (fieldType) {
@@ -209,19 +210,55 @@ export function use${operationName}(options: Omit<Urql.Use${operationType}Args<n
 
     const mockedVals = this._mockSelectionSet(node.selectionSet);
 
-    return `
-export function ${operationName}Mocks() {
+    // eslint-disable-next-line
+    console.log('operationType', operationType);
+    if (operationType === 'Query') {
+      return `
+export function use${operationName}Mocks() {
   return {
     use${operationName}: vi.fn(() => {
-      return Promise.resolve({
+      return {
         fetching: ref(false),
         error: ref(null),
-        data: {
-          ${mockedVals}
-        },
-      });
+        data: ref({
+          data: {
+            ${mockedVals}
+          },
+        }),
+      };
     }),
-  }
+  };
+};`;
+    }
+
+    if (operationType === 'Mutation') {
+      return `
+export function use${operationName}Mocks() {
+  const ${operationName}ExecuteMutationMock = vi.fn(() => {
+    return Promise.resolve({
+      data: {
+        ${mockedVals}
+      },
+    });
+  });
+
+  return {
+    ${operationName}ExecuteMutationMock,
+    use${operationName}: vi.fn(() => {
+      return {
+        fetching: ref(false),
+        error: ref(null),
+        executeMutation: ${operationName}ExecuteMutationMock,
+      };
+    }),
+  };
+};`;
+    }
+
+    return `
+export function use${operationName}Mocks() {
+  return {
+    use${operationName}: vi.fn(() => console.log('Error: Not Implemented')),
 };`;
   }
 
