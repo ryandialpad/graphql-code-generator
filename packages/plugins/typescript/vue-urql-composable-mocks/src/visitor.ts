@@ -8,21 +8,12 @@ import {
 } from '@graphql-codegen/visitor-plugin-common';
 import { VueUrqlRawPluginConfig } from './config.js';
 import autoBind from 'auto-bind';
-import {
-  OperationDefinitionNode,
-  GraphQLSchema,
-  NamedTypeNode,
-  ListTypeNode,
-  VariableDefinitionNode,
-  SelectionNode,
-  SelectionSetNode,
-  VariableNode,
-  FieldNode,
-} from 'graphql';
+import { OperationDefinitionNode, GraphQLSchema, SelectionSetNode, FieldNode } from 'graphql';
 import { pascalCase } from 'change-case-all';
 
 export interface UrqlPluginConfig extends ClientSideBasePluginConfig {
   withComposition: boolean;
+  withMocks: boolean;
   urqlImportFrom: string;
 }
 
@@ -30,10 +21,9 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
   private _externalImportPrefix = '';
 
   constructor(schema: GraphQLSchema, fragments: LoadedFragment[], rawConfig: VueUrqlRawPluginConfig) {
-    // eslint-disable-next-line no-console
-    //console.log('schema', schema);
     super(schema, fragments, rawConfig, {
       withComposition: getConfigValue(rawConfig.withComposition, true),
+      withMocks: getConfigValue(rawConfig.withMocks, true),
       urqlImportFrom: getConfigValue(rawConfig.urqlImportFrom, '@urql/vue'),
     });
 
@@ -67,7 +57,12 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
 
     if (this.config.withComposition) {
       imports.push(`import * as Urql from '${this.config.urqlImportFrom}';`);
-      // TODO: Add import for faker or something
+    }
+
+    if (this.config.withMocks) {
+      imports.push(`import { faker } from '@faker-js/faker';`);
+      imports.push(`import { vi } from 'vitest';`);
+      imports.push(`import { ref } from 'vue';`);
     }
 
     imports.push(OMIT_TYPE);
@@ -107,19 +102,23 @@ export function use${operationName}(options: Omit<Urql.Use${operationType}Args<n
 };`;
   }
 
-  // TODO: Refactor this to not be recursive for efficiency sake
+  // TODO: Refactor this brute force recursive solution
   private _getFieldType(name: string, typeMap: any): any {
     let foundType;
 
-    Object.keys(typeMap).forEach(key => {
+    Object.keys(typeMap).every(key => {
       if (typeMap[key]['name'] === name) {
-        foundType = typeMap[key]['type']['ofType']['name'];
+        foundType = typeMap[key]?.type?.ofType?.name;
+        return false; // Match found, exit loop
       } else if (typeMap[key]['_fields']) {
         const retFoundType = this._getFieldType(name, typeMap[key]['_fields']);
-        if (!foundType) {
+        if (!foundType && retFoundType) {
           foundType = retFoundType;
+          return false; // Match found, exit loop
         }
       }
+
+      return true;
     });
 
     return foundType;
@@ -130,23 +129,23 @@ export function use${operationName}(options: Omit<Urql.Use${operationType}Args<n
 
     switch (fieldType) {
       case 'String': {
-        return "'some mocked string'";
+        return 'faker.lorem.sentence()';
       }
       case 'Int': {
-        return 1234;
+        return 'faker.datatype.number()';
       }
       case 'Float': {
-        return 1.234;
+        return 'faker.datatype.float()';
       }
       case 'Boolean': {
-        return true;
+        return 'faker.datatype.boolean()';
       }
       case 'ID': {
-        return "'1234'";
+        return 'faker.datatype.uuid()';
       }
       default: {
         // TODO: Better Error Handling
-        throw new Error('Unsupported Type!');
+        //throw new Error('Unsupported Type!');
       }
     }
   }
@@ -164,6 +163,8 @@ export function use${operationName}(options: Omit<Urql.Use${operationType}Args<n
     selectionSet.selections.forEach(selection => {
       switch (selection.kind) {
         case 'Field': {
+          // eslint-disable-next-line
+          //console.log('_mockSelectionSet', selection);
           if (selection.selectionSet) {
             if (mockedVals.length < 1) {
               mockedVals = `${selection.name.value}: {${this._mockSelectionSet(selection.selectionSet)}
@@ -222,25 +223,6 @@ export function ${operationName}Mocks() {
     }),
   }
 };`;
-
-    /*if (operationType === 'Mutation') {
-      return `
-export function use${operationName}() {
-  return Urql.use${operationType}<${operationResultType}, ${operationVariablesTypes}>(${documentVariableName});
-};`;
-    }
-
-    if (operationType === 'Subscription') {
-      return `
-export function use${operationName}<R = ${operationResultType}>(options: Omit<Urql.Use${operationType}Args<never, ${operationVariablesTypes}>, 'query'> = {}, handler?: Urql.SubscriptionHandlerArg<${operationResultType}, R>) {
-  return Urql.use${operationType}<${operationResultType}, R, ${operationVariablesTypes}>({ query: ${documentVariableName}, ...options }, handler);
-};`;
-    }
-
-    return `
-export function use${operationName}(options: Omit<Urql.Use${operationType}Args<never, ${operationVariablesTypes}>, 'query'> = {}) {
-  return Urql.use${operationType}<${operationResultType}>({ query: ${documentVariableName}, ...options });
-};`;*/
   }
 
   protected buildOperation(
@@ -264,10 +246,14 @@ export function use${operationName}(options: Omit<Urql.Use${operationType}Args<n
         operationVariablesTypesPrefixed
       );
 
-      const mock = this._buildCompositionFnMock(node, operationType);
+      if (this.config.withMocks) {
+        const mock = this._buildCompositionFnMock(node, operationType);
 
-      // eslint-disable-next-line no-console
-      console.log('mock', mock);
+        // eslint-disable-next-line no-console
+        console.log('Created Composition Mock: ', mock);
+
+        composition += mock;
+      }
     } else {
       composition = null;
     }

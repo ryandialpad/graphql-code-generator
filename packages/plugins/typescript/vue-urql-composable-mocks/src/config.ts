@@ -11,6 +11,12 @@ export interface VueUrqlRawPluginConfig extends RawClientSideBasePluginConfig {
    */
   withComposition?: boolean;
   /**
+   * @description Customized the output by enabling/disabling the generated Vue Composition mock functions.
+   * @default true
+   *
+   */
+  withMocks?: boolean;
+  /**
    * @description You can specify module that exports components `Query`, `Mutation`, `Subscription`
    * This is useful for further abstraction of some common tasks (e.g. error handling).
    * Filepath relative to generated file can be also specified.
