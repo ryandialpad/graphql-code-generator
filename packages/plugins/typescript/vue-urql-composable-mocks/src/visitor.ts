@@ -55,9 +55,9 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
       return baseImports;
     }
 
-    if (this.config.withComposition) {
+    /*if (this.config.withComposition) {
       imports.push(`import * as Urql from '${this.config.urqlImportFrom}';`);
-    }
+    }*/
 
     if (this.config.withMocks) {
       imports.push(`import { faker } from '@faker-js/faker';`);
@@ -202,6 +202,16 @@ export function use${operationName}(options: Omit<Urql.Use${operationType}Args<n
     return mockedVals;
   }
 
+  /*
+    TODO:
+      FEATURE: Allow users to supply static data
+      FEATURE: Add subscription support
+      FEATURE: Add fragment support
+      UPGRADE: Add error handling
+      UPGRADE: Refactor brute force solutions
+      UPGRADE: Remove composition generation
+      REFACTORING: Clean up messy code
+  */
   private _buildCompositionFnMock(node: OperationDefinitionNode, operationType: string): string {
     const operationName: string = this.convertName(node.name?.value ?? '', {
       suffix: this.config.omitOperationSuffix ? '' : pascalCase(operationType),
@@ -228,7 +238,7 @@ export function use${operationName}Mocks() {
       };
     }),
   };
-};`;
+}`;
     }
 
     if (operationType === 'Mutation') {
@@ -252,14 +262,15 @@ export function use${operationName}Mocks() {
       };
     }),
   };
-};`;
+}`;
     }
 
     return `
 export function use${operationName}Mocks() {
   return {
     use${operationName}: vi.fn(() => console.log('Error: Not Implemented')),
-};`;
+  };
+}`;
   }
 
   protected buildOperation(
@@ -274,6 +285,7 @@ export function use${operationName}Mocks() {
     const operationVariablesTypesPrefixed = this._externalImportPrefix + operationVariablesTypes;
 
     let composition;
+    let mock;
     if (this.config.withComposition) {
       composition = this._buildCompositionFn(
         node,
@@ -284,17 +296,17 @@ export function use${operationName}Mocks() {
       );
 
       if (this.config.withMocks) {
-        const mock = this._buildCompositionFnMock(node, operationType);
+        mock = this._buildCompositionFnMock(node, operationType);
 
         // eslint-disable-next-line no-console
-        console.log('Created Composition Mock: ', mock);
+        console.log('Created Composition Mock: ', composition, mock);
 
-        composition += mock;
+        //composition += mock;
       }
     } else {
       composition = null;
     }
 
-    return [composition].filter(a => a).join('\n');
+    return [mock].filter(a => a).join('\n');
   }
 }
