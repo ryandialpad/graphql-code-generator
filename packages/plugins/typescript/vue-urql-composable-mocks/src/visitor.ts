@@ -63,6 +63,7 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
       imports.push(`import { faker } from '@faker-js/faker';`);
       imports.push(`import { vi } from 'vitest';`);
       imports.push(`import { ref } from 'vue';`);
+      imports.push(`import type { Ref } from 'vue';`);
     }
 
     imports.push(OMIT_TYPE);
@@ -204,7 +205,8 @@ export function use${operationName}(options: Omit<Urql.Use${operationType}Args<n
 
   /*
     TODO:
-      FEATURE: Allow users to supply static data
+      FEATURE: Allow users to supply static data <COMPLETE>
+        Example: { fetching, error, data}: { fetching: boolean, error: TODO, data: TODO}
       FEATURE: Add subscription support
       FEATURE: Add fragment support
       UPGRADE: Add error handling
@@ -212,7 +214,12 @@ export function use${operationName}(options: Omit<Urql.Use${operationType}Args<n
       UPGRADE: Remove composition generation
       REFACTORING: Clean up messy code
   */
-  private _buildCompositionFnMock(node: OperationDefinitionNode, operationType: string): string {
+  private _buildCompositionFnMock(
+    node: OperationDefinitionNode,
+    operationType: string,
+    operationResultType: string
+  ): string {
+    const operationResultTypePrefixed = this._externalImportPrefix + operationResultType;
     const operationName: string = this.convertName(node.name?.value ?? '', {
       suffix: this.config.omitOperationSuffix ? '' : pascalCase(operationType),
       useTypesPrefix: false,
@@ -221,20 +228,32 @@ export function use${operationName}(options: Omit<Urql.Use${operationType}Args<n
     const mockedVals = this._mockSelectionSet(node.selectionSet);
 
     // eslint-disable-next-line
-    console.log('operationType', operationType);
+    console.log('operationResultTypePrefixed', operationResultTypePrefixed);
     if (operationType === 'Query') {
       return `
-export function use${operationName}Mocks() {
+export function use${operationName}Mocks({
+  fetching = ref(false),
+  error = ref(null),
+  data = ref({
+    ${mockedVals}
+  }),
+}: {
+  fetching?: Ref<boolean>,
+  error?: Ref<object | null>,
+  data?: Ref<Types.${operationResultTypePrefixed}>
+} = {
+  fetching: ref(false),
+  error: ref(null),
+  data: ref({
+    ${mockedVals}
+  }),
+}): object {
   return {
     use${operationName}: vi.fn(() => {
       return {
-        fetching: ref(false),
-        error: ref(null),
-        data: ref({
-          data: {
-            ${mockedVals}
-          },
-        }),
+        fetching,
+        error,
+        data,
       };
     }),
   };
@@ -243,12 +262,27 @@ export function use${operationName}Mocks() {
 
     if (operationType === 'Mutation') {
       return `
-export function use${operationName}Mocks() {
+export function use${operationName}Mocks({
+  fetching = ref(false),
+  error = ref(null),
+  data = {
+    ${mockedVals}
+  },
+}: {
+  fetching?: Ref<boolean>,
+  error?: Ref<object | null>,
+  data?: Types.${operationResultTypePrefixed}
+} = {
+  fetching: ref(false),
+  error: ref(null),
+  data: {
+    ${mockedVals}
+  },
+}): object {
   const ${operationName}ExecuteMutationMock = vi.fn(() => {
     return Promise.resolve({
-      data: {
-        ${mockedVals}
-      },
+      data,
+      error: error.value,
     });
   });
 
@@ -256,8 +290,8 @@ export function use${operationName}Mocks() {
     ${operationName}ExecuteMutationMock,
     use${operationName}: vi.fn(() => {
       return {
-        fetching: ref(false),
-        error: ref(null),
+        fetching,
+        error,
         executeMutation: ${operationName}ExecuteMutationMock,
       };
     }),
@@ -296,7 +330,7 @@ export function use${operationName}Mocks() {
       );
 
       if (this.config.withMocks) {
-        mock = this._buildCompositionFnMock(node, operationType);
+        mock = this._buildCompositionFnMock(node, operationType, operationResultType);
 
         // eslint-disable-next-line no-console
         console.log('Created Composition Mock: ', composition, mock);
