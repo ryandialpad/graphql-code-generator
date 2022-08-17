@@ -100,7 +100,6 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
       }
       default: {
         // TODO: Better Error Handling
-        //throw new Error('Unsupported Type!');
       }
     }
   }
@@ -118,8 +117,6 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
     selectionSet.selections.forEach(selection => {
       switch (selection.kind) {
         case 'Field': {
-          // eslint-disable-next-line
-          //console.log('_mockSelectionSet', selection);
           if (selection.selectionSet) {
             if (mockedVals.length < 1) {
               mockedVals = `${selection.name.value}: {${this._mockSelectionSet(selection.selectionSet)}
@@ -164,7 +161,7 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
       FEATURE: Add fragment support
       UPGRADE: Add error handling
       UPGRADE: Refactor brute force solutions
-      UPGRADE: Remove composition generation
+      UPGRADE: Remove composition generation <COMPLETE>
       REFACTORING: Clean up messy code
   */
   private _buildCompositionFnMock(
@@ -180,8 +177,6 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
 
     const mockedVals = this._mockSelectionSet(node.selectionSet);
 
-    // eslint-disable-next-line
-    console.log('operationResultTypePrefixed', operationResultTypePrefixed);
     if (operationType === 'Query') {
       return `
 export function use${operationName}Mocks({
