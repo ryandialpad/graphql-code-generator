@@ -71,38 +71,6 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
     return [...baseImports, ...imports];
   }
 
-  private _buildCompositionFn(
-    node: OperationDefinitionNode,
-    operationType: string,
-    documentVariableName: string,
-    operationResultType: string,
-    operationVariablesTypes: string
-  ): string {
-    const operationName: string = this.convertName(node.name?.value ?? '', {
-      suffix: this.config.omitOperationSuffix ? '' : pascalCase(operationType),
-      useTypesPrefix: false,
-    });
-
-    if (operationType === 'Mutation') {
-      return `
-export function use${operationName}() {
-  return Urql.use${operationType}<${operationResultType}, ${operationVariablesTypes}>(${documentVariableName});
-};`;
-    }
-
-    if (operationType === 'Subscription') {
-      return `
-export function use${operationName}<R = ${operationResultType}>(options: Omit<Urql.Use${operationType}Args<never, ${operationVariablesTypes}>, 'query'> = {}, handler?: Urql.SubscriptionHandlerArg<${operationResultType}, R>) {
-  return Urql.use${operationType}<${operationResultType}, R, ${operationVariablesTypes}>({ query: ${documentVariableName}, ...options }, handler);
-};`;
-    }
-
-    return `
-export function use${operationName}(options: Omit<Urql.Use${operationType}Args<never, ${operationVariablesTypes}>, 'query'> = {}) {
-  return Urql.use${operationType}<${operationResultType}>({ query: ${documentVariableName}, ...options });
-};`;
-  }
-
   // TODO: Refactor this brute force recursive solution
   private _getFieldType(name: string, typeMap: any): any {
     let foundType;
@@ -321,13 +289,8 @@ export function use${operationName}Mocks() {
     let composition;
     let mock;
     if (this.config.withComposition) {
-      composition = this._buildCompositionFn(
-        node,
-        operationType,
-        documentVariablePrefixed,
-        operationResultTypePrefixed,
-        operationVariablesTypesPrefixed
-      );
+      // eslint-disable-next-line no-console
+      console.log(documentVariablePrefixed, operationResultTypePrefixed, operationVariablesTypesPrefixed);
 
       if (this.config.withMocks) {
         mock = this._buildCompositionFnMock(node, operationType, operationResultType);
