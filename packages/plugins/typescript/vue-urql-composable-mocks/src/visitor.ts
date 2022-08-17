@@ -2,7 +2,6 @@ import {
   ClientSideBaseVisitor,
   ClientSideBasePluginConfig,
   LoadedFragment,
-  getConfigValue,
   OMIT_TYPE,
   DocumentMode,
 } from '@graphql-codegen/visitor-plugin-common';
@@ -11,21 +10,13 @@ import autoBind from 'auto-bind';
 import { OperationDefinitionNode, GraphQLSchema, SelectionSetNode, FieldNode } from 'graphql';
 import { pascalCase } from 'change-case-all';
 
-export interface UrqlPluginConfig extends ClientSideBasePluginConfig {
-  withComposition: boolean;
-  withMocks: boolean;
-  urqlImportFrom: string;
-}
+export interface UrqlPluginConfig extends ClientSideBasePluginConfig {}
 
 export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, UrqlPluginConfig> {
   private _externalImportPrefix = '';
 
   constructor(schema: GraphQLSchema, fragments: LoadedFragment[], rawConfig: VueUrqlRawPluginConfig) {
-    super(schema, fragments, rawConfig, {
-      withComposition: getConfigValue(rawConfig.withComposition, true),
-      withMocks: getConfigValue(rawConfig.withMocks, true),
-      urqlImportFrom: getConfigValue(rawConfig.urqlImportFrom, '@urql/vue'),
-    });
+    super(schema, fragments, rawConfig, {});
 
     if (this.config.importOperationTypesFrom) {
       this._externalImportPrefix = `${this.config.importOperationTypesFrom}.`;
@@ -55,16 +46,10 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
       return baseImports;
     }
 
-    /*if (this.config.withComposition) {
-      imports.push(`import * as Urql from '${this.config.urqlImportFrom}';`);
-    }*/
-
-    if (this.config.withMocks) {
-      imports.push(`import { faker } from '@faker-js/faker';`);
-      imports.push(`import { vi } from 'vitest';`);
-      imports.push(`import { ref } from 'vue';`);
-      imports.push(`import type { Ref } from 'vue';`);
-    }
+    imports.push(`import { faker } from '@faker-js/faker';`);
+    imports.push(`import { vi } from 'vitest';`);
+    imports.push(`import { ref } from 'vue';`);
+    imports.push(`import type { Ref } from 'vue';`);
 
     imports.push(OMIT_TYPE);
 
@@ -277,33 +262,12 @@ export function use${operationName}Mocks() {
 
   protected buildOperation(
     node: OperationDefinitionNode,
-    documentVariableName: string,
+    _documentVariableName: string,
     operationType: string,
     operationResultType: string,
-    operationVariablesTypes: string
+    _operationVariablesTypes: string
   ): string {
-    const documentVariablePrefixed = this._externalImportPrefix + documentVariableName;
-    const operationResultTypePrefixed = this._externalImportPrefix + operationResultType;
-    const operationVariablesTypesPrefixed = this._externalImportPrefix + operationVariablesTypes;
-
-    let composition;
-    let mock;
-    if (this.config.withComposition) {
-      // eslint-disable-next-line no-console
-      console.log(documentVariablePrefixed, operationResultTypePrefixed, operationVariablesTypesPrefixed);
-
-      if (this.config.withMocks) {
-        mock = this._buildCompositionFnMock(node, operationType, operationResultType);
-
-        // eslint-disable-next-line no-console
-        console.log('Created Composition Mock: ', composition, mock);
-
-        //composition += mock;
-      }
-    } else {
-      composition = null;
-    }
-
+    const mock = this._buildCompositionFnMock(node, operationType, operationResultType);
     return [mock].filter(a => a).join('\n');
   }
 }
