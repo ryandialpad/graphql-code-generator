@@ -127,13 +127,10 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
               mockedVals += `${selection.name.value}: {${this._mockSelectionSet(selection.selectionSet)}
         },`;
             }
+          } else if (mockedVals.length < 1) {
+            mockedVals = this._mockFieldNode(selection);
           } else {
-            // eslint-disable-next-line
-            if (mockedVals.length < 1) {
-              mockedVals = this._mockFieldNode(selection);
-            } else {
-              mockedVals += this._mockFieldNode(selection);
-            }
+            mockedVals += this._mockFieldNode(selection);
           }
           break;
         }
