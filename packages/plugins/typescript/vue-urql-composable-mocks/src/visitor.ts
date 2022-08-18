@@ -57,12 +57,13 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
   }
 
   // TODO: Refactor this brute force recursive solution
+  // TODO: Potentially error prone, will return the first instance of a target key
   private _getFieldType(name: string, typeMap: any): any {
     let foundType;
 
     Object.keys(typeMap).every(key => {
       if (typeMap[key]['name'] === name) {
-        foundType = typeMap[key]?.type?.name;
+        foundType = typeMap[key]?.type?.name ?? typeMap[key]?.type?.ofType?.name;
 
         // TODO: add error handling in the event that the type does not have a name
 
@@ -81,9 +82,20 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
     return foundType;
   }
 
-  private _mockFieldData(name: string): any {
-    // TODO: Might be able to narrow this down to query / mutation / subscription types
-    const fieldType = this._getFieldType(name, this._schema.getTypeMap());
+  private _mockFieldData(name: string, operationName: string, operationType: string): any {
+    let fieldType;
+    // TODO: add support for other operation types
+    if (operationType === 'Query') {
+      fieldType = this._getFieldType(
+        name,
+        this._schema.getQueryType()['_fields'][operationName].type.ofType['_fields']
+      );
+    } else if (operationType === 'Mutation') {
+      fieldType = this._getFieldType(
+        name,
+        this._schema.getMutationType()['_fields'][operationName].type.ofType['_fields']
+      );
+    }
 
     switch (fieldType) {
       case 'String': {
@@ -107,30 +119,39 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
     }
   }
 
-  private _mockFieldNode(selection: FieldNode): string {
+  private _mockFieldNode(selection: FieldNode, operationName: string, operationType: string): string {
     return `
-          ${selection.name.value}: ${this._mockFieldData(selection.name.value)},`;
+          ${selection.name.value}: ${this._mockFieldData(selection.name.value, operationName, operationType)},`;
   }
 
-  // TODO: Clean this abomonation up
-  private _mockSelectionSet(selectionSet: SelectionSetNode): string {
+  // keep track of the path down
+  private _mockSelectionSet(selectionSet: SelectionSetNode, operationName: string, operationType: string): string {
     let mockedVals = '';
 
     selectionSet.selections.forEach(selection => {
       switch (selection.kind) {
         case 'Field': {
+          // TODO: clean this logic up
           if (selection.selectionSet) {
             if (mockedVals.length < 1) {
-              mockedVals = `${selection.name.value}: {${this._mockSelectionSet(selection.selectionSet)}
+              mockedVals = `${selection.name.value}: {${this._mockSelectionSet(
+                selection.selectionSet,
+                operationName,
+                operationType
+              )}
         },`;
             } else {
-              mockedVals += `${selection.name.value}: {${this._mockSelectionSet(selection.selectionSet)}
+              mockedVals += `${selection.name.value}: {${this._mockSelectionSet(
+                selection.selectionSet,
+                operationName,
+                operationType
+              )}
         },`;
             }
           } else if (mockedVals.length < 1) {
-            mockedVals = this._mockFieldNode(selection);
+            mockedVals = this._mockFieldNode(selection, operationName, operationType);
           } else {
-            mockedVals += this._mockFieldNode(selection);
+            mockedVals += this._mockFieldNode(selection, operationName, operationType);
           }
           break;
         }
@@ -158,10 +179,13 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
         Example: { fetching, error, data}: { fetching: boolean, error: TODO, data: TODO}
       FEATURE: Add subscription support
       FEATURE: Add fragment support
+      FEATURE: Add support for multi operations
       UPGRADE: Add error handling
       UPGRADE: Refactor brute force solutions
       UPGRADE: Remove composition generation <COMPLETE>
       REFACTORING: Clean up messy code
+      BUG: Use selection to determine the sub type map to use in case of duplicate field names
+        // Can probably keep track using a stack and then use that stack to immidiately retreive the type
   */
   private _buildCompositionFnMock(
     node: OperationDefinitionNode,
@@ -174,7 +198,13 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
       useTypesPrefix: false,
     });
 
-    const mockedVals = this._mockSelectionSet(node.selectionSet);
+    const mockedVals = this._mockSelectionSet(
+      node.selectionSet,
+      // Retreives the first operation selection
+      // TODO: add support for multi operation selections
+      node.selectionSet.selections[0]['name']['value'],
+      operationType
+    );
 
     if (operationType === 'Query') {
       return `
