@@ -62,11 +62,9 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
 
     Object.keys(typeMap).every(key => {
       if (typeMap[key]['name'] === name) {
-        if (typeMap[key]?.type?.ofType) {
-          foundType = typeMap[key]?.type?.ofType?.name;
-        } else {
-          foundType = typeMap[key]?.type?.name;
-        }
+        foundType = typeMap[key]?.type?.name;
+
+        // TODO: add error handling in the event that the type does not have a name
 
         return false; // Match found, exit loop
       } else if (typeMap[key]['_fields']) {
