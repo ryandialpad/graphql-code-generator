@@ -109,8 +109,7 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
 
   private _mockFieldNode(selection: FieldNode): string {
     return `
-          ${selection.name.value}: ${this._mockFieldData(selection.name.value)},
-`;
+          ${selection.name.value}: ${this._mockFieldData(selection.name.value)},`;
   }
 
   // TODO: Clean this abomonation up
@@ -123,10 +122,10 @@ export class UrqlVisitor extends ClientSideBaseVisitor<VueUrqlRawPluginConfig, U
           if (selection.selectionSet) {
             if (mockedVals.length < 1) {
               mockedVals = `${selection.name.value}: {${this._mockSelectionSet(selection.selectionSet)}
-          },`;
+        },`;
             } else {
               mockedVals += `${selection.name.value}: {${this._mockSelectionSet(selection.selectionSet)}
-          },`;
+        },`;
             }
           } else {
             // eslint-disable-next-line
